@@ -16,6 +16,7 @@ namespace Krasnyanskaya221327_Lab04_Sem5_Ver1
     {
         bool isBtnChangeClicked = false;
         int countOfClicks = 0;
+        private int currentPathStep = 0;
 
         public Map()
         {
@@ -24,27 +25,41 @@ namespace Krasnyanskaya221327_Lab04_Sem5_Ver1
 
         private void Map_Load(object sender, EventArgs e)
         {
+            pictureBox1.BackColor = Color.White;
+            pictureBox1.Image = MainForm.mapOfField;
+
             timer1.Enabled = true;
             timer1.Start();
         }
 
         private void timer1_Tick(object sender, EventArgs e)
         {
-            pictureBox1.BackColor = Color.White;
             if (!isBtnChangeClicked)
             {
                 pictureBox1.Image = MainForm.mapOfField;
-                if (MainForm.randomSearch.Trajectory != null)
+
+                randomSearch = new RandomSearch(startPoint.X, startPoint.Y, endPoint.X, endPoint.Y);
+                if (MainForm.randomSearch.Path != null)
                 {
-                    pictureBox1.Image = MainForm.randomSearch.Trajectory;
+                    if (isStart)
+                    {
+                        // Рисуем часть пути до текущего шага
+                        StartStepByStepDrawing(randomSearch.StartSearch(mapViewer, (float)mapViewer.RobotRadius), mapViewer, pictureBox1);
+
+                        // Увеличиваем текущий шаг
+                        currentPathStep++;
+                        //pictureBox1.Refresh();
+                    }
                 }
             }
             else
             {
                 pictureBox1.Image = MainForm.configImage;
             }
-            pictureBox1.Invalidate();
+
+            //pictureBox1.Invalidate();
         }
+
 
         private void pictureBox1_MouseClick(object sender, MouseEventArgs e)
         {
@@ -61,12 +76,16 @@ namespace Krasnyanskaya221327_Lab04_Sem5_Ver1
             {
                 MainForm.mapViewer.SetEndPosition(x, y);
             }
+            else if (checkBox3.Checked)
+            {
+                MainForm.mapViewer.ClearPoints(x, y);
+            }
             else
             {
-                MainForm.mapViewer.ToggleCellState(x, y);
+                MainForm.mapViewer.SetWall(x, y);
             }
 
-            pictureBox1.Invalidate();
+            //pictureBox1.Invalidate();
         }
 
         private void button1_Click(object sender, EventArgs e)
@@ -112,6 +131,144 @@ namespace Krasnyanskaya221327_Lab04_Sem5_Ver1
             {
                 isBtnChangeClicked = false;
             }
+        }
+
+        private void button3_Click(object sender, EventArgs e)
+        {
+            pictureBox1.Image = MainForm.mapOfField;
+
+            isStart = true;
+            timer2.Enabled = true;
+            //StartStepByStepDrawing(randomSearch.Path, mapViewer, pictureBox1);
+        }
+
+        private int currentStepIndex = 0; // Индекс текущего шага
+
+        //public void StartStepByStepDrawing(List<PointF> path, MapViewer mapViewer, PictureBox pictureBox)
+        //{
+        //    // Сохраняем исходное изображение карты, чтобы добавлять новые точки на уже существующую картину
+        //    Bitmap updatedMap = new Bitmap(pictureBox.Image);
+
+        //    // Удаляем предыдущий обработчик (если был добавлен)
+        //    timer2.Tick -= Timer2_Tick;
+
+        //    currentStepIndex = 0;
+
+        //    // Добавляем новый обработчик события
+        //    timer2.Tick += Timer2_Tick;
+
+        //    void Timer2_Tick(object sender, EventArgs e)
+        //    {
+        //        if (currentStepIndex < path.Count)
+        //        {
+        //            // Отрисовываем текущую точку
+        //            var currentPoint = path[currentStepIndex];
+
+        //            // Передаем только нужную часть списка, используя индекс, без создания нового списка
+        //            pictureBox1.Image = randomSearch.DrawSearchStep(path.ToArray(), mapViewer, currentStepIndex);
+        //            //randomSearch.DrawPath(path, mapViewer);
+
+        //            // Увеличиваем шаг
+        //            currentStepIndex++;
+        //        }
+        //        else
+        //        {
+        //            timer2.Stop(); // Останавливаем таймер, когда отрисовка завершена
+        //            timer2.Tick -= Timer2_Tick; // Удаляем обработчик
+        //        }
+        //    }
+
+        //    timer2.Start(); // Запускаем таймер
+        //}
+
+        Bitmap updatedMap = new Bitmap(447, 278);
+        Bitmap bmp = new Bitmap(MainForm.mapOfField);
+        private bool isStart;
+
+        public void StartStepByStepDrawing(List<PointF> path, MapViewer mapViewer, PictureBox pictureBox)
+        {
+            // Удаляем предыдущий обработчик (если был добавлен)
+            timer2.Tick -= Timer2_Tick;
+
+            currentStepIndex = 0;
+
+            // Добавляем новый обработчик события
+            timer2.Tick += Timer2_Tick;
+
+            void Timer2_Tick(object sender, EventArgs e)
+            {
+                if (path != null)
+                {
+                    if (currentStepIndex < path.Count)
+                    {
+                        bmp = randomSearch.DrawSearchStep(path.ToArray(), mapViewer, currentStepIndex);
+
+                        // Увеличиваем шаг
+                        currentStepIndex++;
+                    }
+                    else
+                    {
+                        timer2.Stop(); // Останавливаем таймер
+                        timer2.Tick -= Timer2_Tick; // Удаляем обработчик
+                        var commands = randomSearch.TranslatePathToCommands(randomSearch.Path);
+
+                        // Проверяем, что команда не пуста
+                        if (commands == null || commands.Count == 0)
+                        {
+                            MessageBox.Show("Финальный путь не найден.", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                            return;
+                        }
+
+                        // Рисуем финальный путь
+                        pictureBox1.Image = randomSearch.DrawFinalPath(commands, randomSearch.Path);
+                    }
+                }
+                // Обновляем отображение
+                
+            }
+            pictureBox.Image = bmp;
+            //pictureBox.Invalidate();
+
+            timer2.Start(); // Запускаем таймер
+        }
+
+
+        private void timer2_Tick(object sender, EventArgs e)
+        {
+            //// Рисуем часть пути до текущего шага
+            //StartStepByStepDrawing(MainForm.randomSearch.Path, mapViewer, pictureBox1);
+
+            //// Увеличиваем текущий шаг
+            //currentPathStep++;
+            ////pictureBox1.Refresh();
+        }
+
+        private void button4_Click(object sender, EventArgs e)
+        {
+            List<string> commands = randomSearch.TranslatePathToCommands(randomSearch.Path);
+
+            randomSearch.SaveCommandsToCsv(commands);
+        }
+
+        private void button5_Click(object sender, EventArgs e)
+        {
+            var commands = randomSearch.TranslatePathToCommands(randomSearch.Path);
+
+            // Проверяем, что команда не пуста
+            if (commands == null || commands.Count == 0)
+            {
+                MessageBox.Show("Финальный путь не найден.", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            // Рисуем финальный путь
+            pictureBox1.Image = randomSearch.DrawFinalPath(commands, randomSearch.Path);
+            //pictureBox1.Refresh();
+        }
+
+        private void checkBox3_CheckedChanged(object sender, EventArgs e)
+        {
+
         }
     }
 }

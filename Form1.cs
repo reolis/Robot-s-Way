@@ -324,86 +324,158 @@ namespace Krasnyanskaya221327_Lab04_Sem5_Ver1
                 return currentPosition;
             }
 
-            public static void MoveAlongPath(List<PointF> path, MapViewer mapViewer, int[] distances)
+            public static void MoveAlongPath(List<string> commands, Visualization vis)
             {
-                if (UDPServer.b == 1)
+                const double tolerance = 5.0; // Допустимая погрешность для достижения цели
+                PointF current = vis.RobotPosition;
+
+                if (Robot.index < commands.Count)
                 {
-                    SetCommand("B", -50);  // Стандартное движение
-                    SetCommand("F", 0);
-                }
-                else
-                {
-                    // Получаем текущую и следующую точку на пути
-                    double scaleX = path[index].X;
-                    double scaleY = path[index].Y;
-                    PointF next = new PointF((int)scaleX, (int)scaleY);
+                    // Разбираем текущую команду
+                    string[] parts = commands[Robot.index].Split(';');
+                    int direction = int.Parse(parts[0]);
+                    float targetX = float.Parse(parts[1]);
+                    float targetY = float.Parse(parts[2]);
 
-                    // Получаем текущую позицию робота
-                    PointF current = new PointF(vis.RobotPosition.X, vis.RobotPosition.Y);
-
-                    MovingToPoint(path, vis, distances, sensorAngles);
-                }
-            }
-
-            private static DateTime lastStateChangeTime;
-            private static bool isTurning = false; // Флаг для проверки, завершен ли поворот
-
-            public static void MovingToPoint(List<PointF> path, Visualization vis, int[] sensors, float[] angles)
-            {
-                const double tolerance = 1; // Допустимая погрешность
-
-                if (Robot.index < path.Count)
-                {
-                    PointF target = path[Robot.index];
-                    PointF current = vis.RobotPosition;
+                    PointF target = new PointF(targetX, targetY);
 
                     // Вычисляем расстояние до цели
                     double distanceX = target.X - current.X;
                     double distanceY = target.Y - current.Y;
+                    double distanceToTarget = Math.Sqrt(distanceX * distanceX + distanceY * distanceY);
 
-                    // Проверяем, достиг ли робот цели
-                    if (Math.Abs(distanceX) <= tolerance && Math.Abs(distanceY) <= tolerance)
+                    // Проверяем, достиг ли робот цели с учетом погрешности
+                    if (distanceToTarget <= tolerance)
                     {
-                        Robot.index++; // Переходим к следующей точке
-                        isTurning = true; // Готовимся к следующему повороту
-                        return;
-                    }
-
-                    // Угол до цели
-                    double angleToTarget = Math.Atan2(distanceY, distanceX) * (180 / Math.PI);
-
-                    // Текущий угол робота
-                    double currentAngle = vis.CalcPosition(UDPServer.le, UDPServer.re).Item2 * (180 / Math.PI);
-
-                    // Разница углов, нормализованная в диапазоне [-180, 180]
-                    double angleDifference = NormalizeAngle(angleToTarget - currentAngle);
-                    angleDiff = angleDifference;
-
-                    // Если требуется поворот
-                    if (Math.Abs(angleDifference) > 5)
-                    {
-                        if (angleDifference > 0)
+                        Robot.index++; // Переходим к следующей команде
+                        if (Robot.index >= commands.Count)
                         {
-                            SetCommand("B", 25); // Поворот по часовой стрелке
-                            SetCommand("F", 50);  // Без движения вперед
+                            // Если команды закончились, останавливаем робот
+                            SetCommand("B", 0); // Остановить поворот
+                            SetCommand("F", 0); // Остановить движение
+                            
                         }
-                        else
-                        {
-                            SetCommand("B", -25); // Поворот против часовой стрелки
-                            SetCommand("F", 50);
-                        }
-                        lastStateChangeTime = DateTime.Now; // Сохраняем время последней команды
                     }
                     else
                     {
-                        // Если поворот завершен, останавливаемся
-                        SetCommand("B", 0);
-                        SetCommand("F", 50);
-                        isTurning = false; // Поворот завершен
-                        lastStateChangeTime = DateTime.Now;
+                        // Выполняем движение на основе текущего направления
+                        ExecuteDirectionCommand(direction);
                     }
                 }
             }
+
+
+            private static void ExecuteDirectionCommand(int direction)
+            {
+                switch (direction)
+                {
+                    case 0: // Стоп
+                        SetCommand("B", 0);
+                        SetCommand("F", 0);
+                        break;
+                    case 1: // Север
+                        SetCommand("B", 0);
+                        SetCommand("F", 50); // Двигаемся вперёд
+                        break;
+                    case 2: // Восток
+                        SetCommand("B", -25); // Поворот по часовой
+                        SetCommand("F", 50); // Движение вперёд
+                        break;
+                    case 3: // Юг
+                        SetCommand("B", 0);
+                        SetCommand("F", 50); // Двигаемся назад
+                        break;
+                    case 4: // Запад
+                        SetCommand("B", 25); // Поворот против часовой
+                        SetCommand("F", 50); // Движение вперёд
+                        break;
+                }
+            }
+
+
+            //public static void MoveAlongPath(List<PointF> path, MapViewer mapViewer, int[] distances)
+            //{
+            //    if (UDPServer.b == 1)
+            //    {
+            //        SetCommand("B", -50);
+            //        SetCommand("F", 0);
+            //    }
+            //    else
+            //    {
+            //        // Получаем текущую и следующую точку на пути
+            //        double scaleX = path[index].X;
+            //        double scaleY = path[index].Y;
+            //        PointF next = new PointF((int)scaleX, (int)scaleY);
+
+            //        // Получаем текущую позицию робота
+            //        PointF current = new PointF(vis.RobotPosition.X, vis.RobotPosition.Y);
+
+            //        // Двигаемся к точке, проверяя, что робот может двигаться
+            //        MovingToPoint(path, vis, distances, sensorAngles);
+            //    }
+            //}
+
+            //private static bool isTurning = false;
+
+            //public static void MovingToPoint(List<PointF> path, Visualization vis, int[] sensors, float[] angles)
+            //{
+            //    const double tolerance = 0.5; // Допустимая погрешность
+
+            //    if (Robot.index < path.Count)
+            //    {
+            //        PointF target = path[Robot.index];
+            //        PointF current = vis.RobotPosition;
+
+            //        // Вычисляем расстояние до цели
+            //        double distanceX = target.X - current.X;
+            //        double distanceY = target.Y - current.Y;
+
+            //        // Проверяем, достиг ли робот цели
+            //        if (Math.Abs(distanceX) <= tolerance && Math.Abs(distanceY) <= tolerance)
+            //        {
+            //            Robot.index++; // Переходим к следующей точке
+            //            isTurning = true; // Готовимся к следующему повороту
+            //            return;
+            //        }
+
+            //        // Угол до цели
+            //        double angleToTarget = Math.Atan2(distanceY, distanceX) * (180 / Math.PI);
+
+            //        // Текущий угол робота
+            //        double currentAngle = vis.CalcPosition(UDPServer.le, UDPServer.re).Item2 * (180 / Math.PI);
+
+            //        // Разница углов, нормализованная в диапазоне [-180, 180]
+            //        double angleDifference = NormalizeAngle(angleToTarget - currentAngle);
+            //        angleDiff = angleDifference;
+
+            //        // Если требуется поворот
+            //        if (Math.Abs(angleDifference) > 5 && !isTurning)
+            //        {
+            //            if (angleDifference > 0)
+            //            {
+            //                SetCommand("B", 25); // Поворот по часовой стрелке
+            //                SetCommand("F", 0);  // Без движения вперед
+            //            }
+            //            else
+            //            {
+            //                SetCommand("B", -25); // Поворот против часовой стрелки
+            //                SetCommand("F", 0);
+            //            }
+            //            lastStateChangeTime = DateTime.Now; // Сохраняем время последней команды
+            //            isTurning = true;
+            //        }
+            //        else
+            //        {
+            //            // Если поворот завершен, начинаем движение вперед
+            //            if (isTurning)
+            //            {
+            //                SetCommand("B", 0); // Останавливаем поворот
+            //                SetCommand("F", 50); // Двигаемся вперед
+            //                isTurning = false; // Поворот завершен
+            //            }
+            //        }
+            //    }
+            //}
 
 
             //public static void MovingToPoint(List<PointF> path, Visualization vis, int[] sensors, float[] angles)
@@ -1053,9 +1125,9 @@ namespace Krasnyanskaya221327_Lab04_Sem5_Ver1
             public float[,] MapData;
             public const int GridWidth = 64;
             public const int GridHeight = 40;
-            double RobotRadius = 0.6;  // Радиус робота в метрах
-            public const float MiniCellSize = 0.25f;    // Размер клетки в метрах
-            public static int CellSize = 25;    // Размер клетки в пикселях на экране
+            public double RobotRadius = 0.6;  // Радиус робота в метрах
+            public const float MiniCellSize = 0.6f;    // Размер клетки в метрах
+            public static int CellSize = (int)(25 * 0.4);    // Размер клетки в пикселях на экране
 
             public Bitmap Map;
             private Bitmap ConfigSpace;
@@ -1069,14 +1141,39 @@ namespace Krasnyanskaya221327_Lab04_Sem5_Ver1
             {
                 startPositions.Add(new Point(x, y));
                 MapData[y, x] = 2;
-                DrawMap();
+                mapOfField = DrawMap();
             }
 
+            public void SetWall(int x, int y)
+            {
+                MapData[y, x] = 1;
+                mapOfField = DrawMap();
+            }
             public void SetEndPosition(int x, int y)
             {
                 endPositions.Add(new Point(x, y));
                 MapData[y, x] = 3;
-                DrawMap();
+                mapOfField = DrawMap();
+            }
+
+            public void ClearPoints(int x, int y)
+            {
+                if (MapData[y, x] == 2)
+                {
+                    startPositions.Remove(new Point(x, y));
+                    MapData[y, x] = 0;
+                }
+                else if (MapData[y, x] == 3)
+                {
+                    endPositions.Remove(new Point(x, y));
+                    MapData[y, x] = 0;
+                }
+                else
+                {
+                    MapData[y, x] = 0;
+                }
+                
+                mapOfField = DrawMap();
             }
 
             public Bitmap OpenMap()
@@ -1373,72 +1470,83 @@ namespace Krasnyanskaya221327_Lab04_Sem5_Ver1
 
             private Dictionary<PointF, int> VisitCount = new Dictionary<PointF, int>();
 
-            public List<PointF> StartSearch(MapViewer mapViewer, int robotSpeed)
+            public List<PointF> StartSearch(MapViewer mapViewer, float robotRadius)
             {
-                if (!Path.Contains(Current))
+                const int maxSteps = 1000000; // Максимальное количество шагов
+                int steps = 0;
+
+                // Храним посещенные точки
+                HashSet<PointF> visitedPoints = new HashSet<PointF>();
+
+                // Стек для хранения точек при обходе (DFS использует стек)
+                Stack<PointF> stack = new Stack<PointF>();
+                stack.Push(Current); // Начинаем с текущей позиции
+
+                // Пока есть точки для обхода и не превышено количество шагов
+                while (stack.Count > 0 && steps < maxSteps)
                 {
-                    Path.Add(Current);
-                    VisitCount[Current] = 1; // Начальная точка считается посещенной
-                }
+                    Current = stack.Pop(); // Берем текущую точку из стека
 
-                int steps = 0; // Счетчик пройденных шагов
-                const int maxSteps = 10000; // Максимальное количество шагов для предотвращения зацикливания
-                const int maxVisitCount = 5; // Максимальное количество посещений точки, после которого она будет исключена
+                    // Если точка уже посещена, пропускаем
+                    if (visitedPoints.Contains(Current))
+                        continue;
 
-                // Цикл продолжается до тех пор, пока не достигнута цель
-                while (Current.X != EndX || Current.Y != EndY)
-                {
-                    List<PointF> neighbors = GetNeighbors(Current, mapViewer);
-                    // neighbors = AvoidObstacles(neighbors, sensors, robotSpeed, mapViewer); // Если нужно избегать препятствий
+                    // Помечаем точку как посещенную
+                    visitedPoints.Add(Current);
+                    Path.Add(Current); // Добавляем в путь
 
-                    // Фильтруем соседи, чтобы исключить те, которые были слишком часто посещены
-                    //var validNeighbors = neighbors.Where(neighbor =>
-                    //    !VisitCount.ContainsKey(neighbor) || VisitCount[neighbor] < maxVisitCount).ToList();
-
-                    if (neighbors.Count > 0)
+                    // Если достигли конечной точки, заканчиваем поиск
+                    if (Current.X == EndX && Current.Y == EndY)
                     {
-                        // Выбираем следующую точку случайным образом среди валидных соседей
-                        PointF next = neighbors[Rand.Next(neighbors.Count)];
-
-                        // Проверяем, была ли эта точка уже посещена
-                        if (VisitCount.ContainsKey(next) && VisitCount[next] > 1)
-                        {
-                            // Усредняем координаты точки, если она уже была посещена
-                            var avgX = Path.Where(p => p.X == next.X).Average(p => p.X);
-                            var avgY = Path.Where(p => p.Y == next.Y).Average(p => p.Y);
-                            next = new PointF((float)avgX, (float)avgY);
-                        }
-
-                        // Добавляем усредненную точку в путь
-                        Path.Add(next);
-                        if (!VisitCount.ContainsKey(next))
-                        {
-                            VisitCount[next] = 0;
-                        }
-
-                        // Увеличиваем количество посещений точки
-                        VisitCount[next]++;
-
-                        Current = next;
-                        steps++;
-                    }
-                    else
-                    {
-                        // Если все соседи были посещены слишком часто, выходим из цикла (зацикливание)
                         break;
                     }
 
-                    // Ограничиваем максимальное количество шагов, чтобы избежать зацикливания
-                    if (steps > maxSteps)
+                    // Получаем соседей текущей точки
+                    var neighbors = GetNeighbors(Current, mapViewer)
+                        .Where(n => mapViewer.CanFitRobot(n.X, n.Y)) // Проверяем, что клетка доступна для робота
+                        .Where(n => !visitedPoints.Contains(n)) // Исключаем уже посещенные точки
+                        .Where(n => CanFitRobotAtPosition(n, robotRadius, mapViewer)) // Проверяем, помещается ли робот
+                        .ToList();
+
+                    // Добавляем соседей в стек для дальнейшего обхода
+                    foreach (var neighbor in neighbors)
                     {
-                        break; // Выход из цикла, если путь не найден за допустимое количество шагов
+                        stack.Push(neighbor);
+                    }
+
+                    steps++; // Увеличиваем счетчик шагов
+                }
+
+                return Path; // Возвращаем найденный путь
+            }
+
+
+            // Функция, проверяющая, помещается ли робот на новую позицию с учетом радиуса
+            public bool CanFitRobotAtPosition(PointF position, float robotRadius, MapViewer mapViewer)
+            {
+                // Определяем ограничивающий прямоугольник, который включает весь радиус робота
+                int startX = (int)(position.X - robotRadius);
+                int endX = (int)(position.X + robotRadius);
+                int startY = (int)(position.Y - robotRadius);
+                int endY = (int)(position.Y + robotRadius);
+
+                // Проверяем все клетки в пределах окружности, соответствующей радиусу робота
+                for (int x = startX; x <= endX; x++)
+                {
+                    for (int y = startY; y <= endY; y++)
+                    {
+                        // Проверяем, попадает ли клетка в круг с центром в position и радиусом robotRadius
+                        if (Math.Sqrt(Math.Pow(x - position.X, 2) + Math.Pow(y - position.Y, 2)) <= robotRadius)
+                        {
+                            // Проверяем, что клетка свободна
+                            if (!mapViewer.CanFitRobot(x, y)) // Если клетка занята
+                                return false;
+                        }
                     }
                 }
 
-                // Возвращаем путь, который робот прошел
-                return Path;
+                return true; // Все клетки в пределах радиуса свободны
             }
-
 
 
             // Функция для подсчета количества посещений точки
@@ -1516,7 +1624,7 @@ namespace Krasnyanskaya221327_Lab04_Sem5_Ver1
 
 
 
-            private List<PointF> GetNeighbors(PointF p, MapViewer mapViewer)
+            public List<PointF> GetNeighbors(PointF p, MapViewer mapViewer)
             {
                 List<PointF> neighbors = new List<PointF>();
                 int[] dx = { -1, 1, 0, 0 };  // Направления по X
@@ -1538,31 +1646,6 @@ namespace Krasnyanskaya221327_Lab04_Sem5_Ver1
                 }
                 return neighbors;
             }
-
-
-            //private List<PointF> GetNeighbors(PointF p)
-            //{
-            //    List<PointF> neighbors = new List<PointF>();
-
-            //    // dx и dy описывают направления движения по оси X и Y:
-            //    // Влево, вправо, вниз, вверх.
-            //    int[] dx = { -1, 1, 0, 0 };  // Смещения по X: -1 (влево), +1 (вправо)
-            //    int[] dy = { 0, 0, -1, 1 };  // Смещения по Y: -1 (вниз), +1 (вверх)
-
-            //    for (int i = 0; i < 4; i++)
-            //    {
-            //        float nx = p.X + dx[i]; // Новая X-координата соседа
-            //        float ny = p.Y + dy[i]; // Новая Y-координата соседа
-
-            //        // Проверяем, находится ли сосед в пределах карты
-            //        if (nx >= 0 && nx < MapViewer.GridWidth && ny >= 0 && ny < MapViewer.GridHeight)
-            //        {
-            //            neighbors.Add(new PointF(nx, ny));
-            //        }
-            //    }
-
-            //    return neighbors;
-            //}
 
 
             public void DrawPath(List<PointF> path, MapViewer mapViewer)
@@ -1621,23 +1704,118 @@ namespace Krasnyanskaya221327_Lab04_Sem5_Ver1
                            next.Y * MapViewer.CellSize + MapViewer.CellSize / 2 - length);
             }
 
-            public void DrawSearchStep(List<PointF> path, MapViewer mapViewer)
-            {
-                using (Graphics g = Graphics.FromImage(mapViewer.Map))
-                {
-                    foreach (var point in path)
-                    {
-                        // Проверка, что клетка доступна
-                        if (mapViewer.CanFitRobot(point.X, point.Y))
-                        {
-                            // Рисуем каждый шаг на пути
-                            g.FillRectangle(Brushes.Yellow, point.X * MapViewer.CellSize, point.Y * MapViewer.CellSize,
-                                MapViewer.CellSize, MapViewer.CellSize);
-                        }
-                    }
+            //public Bitmap updatedMap = new Bitmap(mapViewer.Map); // Создаем копию карты
+            //private Dictionary<PointF, int> stepVisitCount = new Dictionary<PointF, int>();
+            //PointF[] partialPath;
+            //public Bitmap DrawSearchStep(PointF[] path, MapViewer mapViewer, int currentStepIndex)
+            //{
+            //    // Получаем подмассив до текущего шага (путь от начала до currentStepIndex)
+            //    partialPath = path.Take(currentStepIndex + 1).ToArray();
 
+            //    using (Graphics g = Graphics.FromImage(updatedMap))
+            //    {
+            //        foreach (var point in partialPath)
+            //        {
+            //            // Регистрируем или обновляем количество шагов для точки
+            //            if (!stepVisitCount.ContainsKey(point))
+            //            {
+            //                stepVisitCount[point] = currentStepIndex;
+            //            }
+
+            //            // Старые точки будем рисовать в голубом цвете
+            //            if (stepVisitCount[point] < currentStepIndex - 10) // 10 шагов назад, например
+            //            {
+            //                // Рисуем старую точку голубым
+            //                g.FillRectangle(Brushes.Cyan,
+            //                    point.X * MapViewer.CellSize,
+            //                    point.Y * MapViewer.CellSize,
+            //                    MapViewer.CellSize,
+            //                    MapViewer.CellSize);
+            //            }
+            //            else if (partialPath.Length == 0) // Точка тупика (нет доступных соседей)
+            //            {
+            //                // Рисуем тупик красным цветом
+            //                g.FillRectangle(Brushes.Red,
+            //                    point.X * MapViewer.CellSize,
+            //                    point.Y * MapViewer.CellSize,
+            //                    MapViewer.CellSize,
+            //                    MapViewer.CellSize);
+            //            }
+            //            else
+            //            {
+            //                // Отрисовываем обычный путь желтым
+            //                g.FillRectangle(Brushes.Yellow,
+            //                    point.X * MapViewer.CellSize,
+            //                    point.Y * MapViewer.CellSize,
+            //                    MapViewer.CellSize,
+            //                    MapViewer.CellSize);
+            //            }
+            //        }
+            //        //DrawPath(partialPath.ToList(), mapViewer);
+            //    }
+
+            //    return updatedMap; // Возвращаем обновленное изображение
+            //}
+
+            public Bitmap updatedMap = new Bitmap(mapOfField); // Создаем копию карты
+            private int[,] stepVisitCount; // Используем двумерный массив для хранения посещений
+            private const int RecentStepsToDraw = 10; // Количество последних шагов для отрисовки
+
+            public Bitmap DrawSearchStep(PointF[] path, MapViewer mapViewer, int currentStepIndex)
+            {
+                // Инициализация массива посещений при первом вызове
+                if (stepVisitCount == null)
+                {
+                    stepVisitCount = new int[mapViewer.Map.Width, mapViewer.Map.Height];
                 }
+
+                using (Graphics g = Graphics.FromImage(mapOfField))
+                {
+                    // Определяем диапазон индексов последних точек
+                    int startStepIndex = Math.Max(0, currentStepIndex - RecentStepsToDraw + 1);
+
+                    // Перебираем только последние точки
+                    for (int i = startStepIndex; i <= currentStepIndex; i++)
+                    {
+                        var point = path[i];
+
+                        // Преобразуем координаты в индексы массива
+                        int xIndex = (int)point.X;
+                        int yIndex = (int)point.Y;
+
+                        // Проверяем границы массива
+                        if (xIndex < 0 || xIndex >= mapViewer.Map.Width || yIndex < 0 || yIndex >= mapViewer.Map.Height)
+                            continue;
+
+                        // Обновляем или регистрируем шаг для текущей точки
+                        stepVisitCount[xIndex, yIndex] = i;
+
+                        // Определяем цвет точки
+                        Brush brush;
+                        if (i < currentStepIndex) // Предыдущие точки
+                        {
+                            brush = Brushes.Cyan;
+                        }
+                        else // Текущая точка
+                        {
+                            brush = Brushes.Yellow;
+                        }
+
+                        // Рисуем точку
+                        g.FillRectangle(
+                            brush,
+                            xIndex * MapViewer.CellSize,
+                            yIndex * MapViewer.CellSize,
+                            MapViewer.CellSize,
+                            MapViewer.CellSize);
+                    }
+                }
+
+                return mapOfField; // Возвращаем обновленное изображение
             }
+
+
+
 
             private List<PointF> TrajectoryPoints = new List<PointF>(); // Хранит пройденные точки
 
@@ -1702,6 +1880,224 @@ namespace Krasnyanskaya221327_Lab04_Sem5_Ver1
                     }
                 }
             }
+
+            public List<string> TranslatePathToCommands(List<PointF> path)
+            {
+                var commands = new List<string>();
+
+                for (int i = 0; i < path.Count - 1; i++)
+                {
+                    PointF current = path[i];
+                    PointF next = path[i + 1];
+
+                    // Вычисляем направление
+                    int direction = GetDirection(current, next);
+
+                    // Формируем строку в формате "направление;X;Y"
+                    commands.Add($"{direction};{next.X};{next.Y}");
+                }
+
+                // Добавляем конечную точку с направлением 0 (стоп)
+                if (path.Any())
+                {
+                    PointF finalPoint = path[0];
+                    commands.Add($"0;{finalPoint.X};{finalPoint.Y}");
+                }
+
+                return commands;
+            }
+
+            // Определение направления движения
+            private static int GetDirection(PointF current, PointF next)
+            {
+                if (next.Y < current.Y) return 1; // Север
+                if (next.X > current.X) return 2; // Восток
+                if (next.Y > current.Y) return 3; // Юг
+                if (next.X < current.X) return 4; // Запад
+                return 0; // Стоп
+            }
+
+            // Сохранение команд в CSV файл
+            public void SaveCommandsToCsv(List<string> commands)
+            {
+                using (SaveFileDialog saveFileDialog = new SaveFileDialog())
+                {
+                    saveFileDialog.Filter = "CSV Files (*.csv)|*.csv";
+                    saveFileDialog.DefaultExt = "csv";
+                    saveFileDialog.Title = "Сохранение маршрута";
+
+                    if (saveFileDialog.ShowDialog() == DialogResult.OK)
+                    {
+                        string filePath = saveFileDialog.FileName;
+                        File.WriteAllLines(filePath, commands);
+                        MessageBox.Show("Маршрут успешно сохранен!", "Успех", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                }
+            }
+
+            public List<PointF> SimplifyPath(List<PointF> path, double segmentLength = 15)
+            {
+                if (path == null || path.Count < 2)
+                    return path; // Если путь слишком короткий, возвращаем его как есть
+
+                List<PointF> simplifiedPath = new List<PointF> { path[0] }; // Начальная точка
+                PointF segmentStart = path[0]; // Начало текущего сегмента
+                List<PointF> segmentPoints = new List<PointF> { segmentStart };
+
+                for (int i = 1; i < path.Count; i++)
+                {
+                    PointF currentPoint = path[i];
+
+                    // Если текущая точка далеко от начала сегмента, завершаем сегмент
+                    if (GetDistance(segmentStart, currentPoint) > segmentLength)
+                    {
+                        // Вычисляем среднюю точку для сегмента
+                        PointF averagedPoint = CalculateAveragePoint(segmentPoints);
+                        simplifiedPath.Add(averagedPoint); // Добавляем в упрощённый путь
+
+                        // Начинаем новый сегмент
+                        segmentStart = currentPoint;
+                        segmentPoints.Clear();
+                    }
+
+                    segmentPoints.Add(currentPoint); // Добавляем точку в текущий сегмент
+                }
+
+                // Добавляем последний сегмент
+                if (segmentPoints.Count > 0)
+                {
+                    PointF averagedPoint = CalculateAveragePoint(segmentPoints);
+                    simplifiedPath.Add(averagedPoint);
+                }
+
+                return simplifiedPath;
+            }
+
+            // Вычисляет среднюю точку для группы точек
+            private PointF CalculateAveragePoint(List<PointF> points)
+            {
+                float sumX = 0;
+                float sumY = 0;
+
+                foreach (var point in points)
+                {
+                    sumX += point.X;
+                    sumY += point.Y;
+                }
+
+                return new PointF(sumX / points.Count, sumY / points.Count);
+            }
+
+            // Вычисляет Евклидово расстояние между двумя точками
+            private double GetDistance(PointF a, PointF b)
+            {
+                return Math.Sqrt(Math.Pow(b.X - a.X, 2) + Math.Pow(b.Y - a.Y, 2));
+            }
+
+
+
+
+            public Bitmap DrawFinalPath(List<string> commands, List<PointF> allPoints)
+            {
+                using (Graphics g = Graphics.FromImage(mapOfField))
+                {
+                    // Упрощаем путь
+                    List<PointF> optimizedPath = SimplifyPath(allPoints);
+
+                    // Рисуем упрощенный путь
+                    for (int i = 0; i < optimizedPath.Count - 1; i++)
+                    {
+                        g.DrawLine(Pens.Purple, new PointF(optimizedPath[i].X * MapViewer.CellSize, optimizedPath[i].Y * MapViewer.CellSize),
+                            new PointF(optimizedPath[i + 1].X * MapViewer.CellSize, optimizedPath[i + 1].Y * MapViewer.CellSize));
+                    }
+
+                    return mapOfField;
+                }
+            }
+
+            // Метод для поиска соседей среди всех точек в списке
+            public List<PointF> GetNeighbors(PointF p, List<PointF> allPoints, int direction)
+            {
+                List<PointF> neighbors = new List<PointF>();
+                int[] dx = { 0, 0, -1, 1 };  // Направления по X (1 - вверх, 2 - вниз, 3 - влево, 4 - вправо)
+                int[] dy = { -1, 1, 0, 0 };  // Направления по Y
+
+                // Для поиска соседей по направлению
+                for (int i = 0; i < 4; i++)
+                {
+                    // Вычисляем координаты соседа
+                    float nx = p.X + dx[i];
+                    float ny = p.Y + dy[i];
+
+                    // Создаем точку соседа
+                    PointF neighbor = new PointF(nx, ny);
+
+                    // Проверяем, есть ли эта точка в списке всех точек
+                    if (allPoints.Contains(neighbor))
+                    {
+                        neighbors.Add(neighbor);
+                    }
+                }
+
+                return neighbors;
+            }
+
+            public List<PointF> GetCentralNeighbors(List<PointF> neighbors)
+            {
+                List<PointF> centralNeighbors = new List<PointF>();
+
+                // Проверяем, что в списке есть хотя бы один сосед
+                if (neighbors.Count == 0)
+                    return centralNeighbors; // Возвращаем пустой список, если нет соседей
+
+                // Выбираем точки с минимальным расстоянием от центральной точки (можно рассматривать все соседи)
+                float minDistance = 10;
+
+                foreach (var neighbor in neighbors)
+                {
+                    // Вычисляем расстояние от первого соседа (или центральной точки)
+                    float distance = (float)Math.Sqrt(Math.Pow(neighbor.X - neighbors[0].X, 2) + Math.Pow(neighbor.Y - neighbors[0].Y, 2));
+
+                    // Если расстояние меньше минимального, добавляем точку в список
+                    if (distance < minDistance)
+                    {
+                        centralNeighbors.Add(neighbor);
+                        minDistance = distance; // Обновляем минимальное расстояние
+                    }
+                }
+
+                return centralNeighbors;
+            }
+
+
+            // Функция нахождения оптимального пути (на основе минимального расстояния)
+            private List<Point> FindOptimalPath(List<Point> points)
+            {
+                // Для простоты, можно использовать жадный подход: выбрать ближайшую точку на каждом шаге
+                List<Point> optimalPath = new List<Point> { points[0] };  // Начинаем с первой точки
+                List<Point> remainingPoints = new List<Point>(points);     // Копируем все точки
+                remainingPoints.RemoveAt(0);                                // Убираем первую точку, она уже в пути
+
+                while (remainingPoints.Count > 0)
+                {
+                    Point lastPoint = optimalPath.Last();  // Текущая последняя точка в пути
+                    Point nearestPoint = remainingPoints
+                        .OrderBy(p => GetDistance(lastPoint, p))  // Ищем ближайшую точку
+                        .First();
+
+                    optimalPath.Add(nearestPoint);        // Добавляем ближайшую точку в путь
+                    remainingPoints.Remove(nearestPoint); // Убираем её из списка оставшихся точек
+                }
+
+                return optimalPath;
+            }
+
+            // Функция для расчета Евклидова расстояния между двумя точками
+            private double GetDistance(Point p1, Point p2)
+            {
+                return Math.Sqrt(Math.Pow(p2.X - p1.X, 2) + Math.Pow(p2.Y - p1.Y, 2));
+            }
+
         }
 
 
@@ -2012,7 +2408,7 @@ namespace Krasnyanskaya221327_Lab04_Sem5_Ver1
                 UDPServer.d7 };
                     float[] sensorsAngles = { 0, 45, 90, 135, 180, -135, -90, -45 };
 
-                    Robot.MoveAlongPath(randomSearch.Path, mapViewer, sensorData);
+                    Robot.MoveAlongPath(randomSearch.TranslatePathToCommands(randomSearch.Path), vis);
                     //randomSearch.DrawCurrentState(vis.RobotPosition, randomSearch.Path, sensorData, 5, mapViewer);
                     
 
@@ -2106,8 +2502,7 @@ namespace Krasnyanskaya221327_Lab04_Sem5_Ver1
 
         private void timer2_Tick(object sender, EventArgs e)
         {
-            randomSearch.DrawSearchStep(randomSearch.Path, mapViewer);
-            randomSearch.DrawPath(randomSearch.Path, mapViewer);
+            
         }
 
         private void button5_Click(object sender, EventArgs e)
@@ -2120,7 +2515,7 @@ namespace Krasnyanskaya221327_Lab04_Sem5_Ver1
 
             if (IsThereStartAndEndPoint(mapViewer))
             {
-                randomSearch = new RandomSearch(startPoint.X, startPoint.Y, endPoint.X, endPoint.Y);
+                //randomSearch = new RandomSearch(startPoint.X, startPoint.Y, endPoint.X, endPoint.Y);
 
                 vis.RobotPosition = new PointF(startPoint.X, startPoint.Y);
                 visualization.RobotPosition = new PointF(205, 140);
@@ -2131,8 +2526,10 @@ namespace Krasnyanskaya221327_Lab04_Sem5_Ver1
             richTextBox1.Text = startPoint.X.ToString() + "; " + startPoint.Y.ToString() + " " + endPoint.X.ToString() + "; " 
                 + endPoint.Y.ToString();
 
-            randomSearch.StartSearch(mapViewer, 5);
             
+
+           
+            //randomSearch.DrawPath(randomSearch.Path, mapViewer);
             //randomSearch.DrawSearchStep(randomSearch.Path, mapViewer);
             //randomSearch.DrawPath(randomSearch.Path, mapViewer);
         }
