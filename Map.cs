@@ -43,12 +43,15 @@ namespace Krasnyanskaya221327_Lab04_Sem5_Ver1
                 {
                     if (isStart)
                     {
-                        // Рисуем часть пути до текущего шага
-                        StartStepByStepDrawing(randomSearch.StartSearch(mapViewer, (float)mapViewer.RobotRadius), mapViewer, pictureBox1);
+                        if (MainForm.IsThereStartAndEndPoint(mapViewer))
+                        {
+                            // Рисуем часть пути до текущего шага
+                            StartStepByStepDrawing(randomSearch.StartSearch(mapViewer, (float)mapViewer.RobotRadius), mapViewer, pictureBox1);
 
-                        // Увеличиваем текущий шаг
-                        currentPathStep++;
-                        //pictureBox1.Refresh();
+                            // Увеличиваем текущий шаг
+                            currentPathStep++;
+                            //pictureBox1.Refresh();
+                        }
                     }
                 }
             }
@@ -201,7 +204,7 @@ namespace Krasnyanskaya221327_Lab04_Sem5_Ver1
                 {
                     if (currentStepIndex < path.Count)
                     {
-                        bmp = randomSearch.DrawSearchStep(path.ToArray(), mapViewer, currentStepIndex);
+                        bmp = randomSearch.DrawSearchStep(path.ToArray(), mapViewer, currentStepIndex, randomSearch.deadEnds);
 
                         // Увеличиваем шаг
                         currentStepIndex++;
@@ -220,7 +223,7 @@ namespace Krasnyanskaya221327_Lab04_Sem5_Ver1
                         }
 
                         // Рисуем финальный путь
-                        pictureBox1.Image = randomSearch.DrawFinalPath(commands, randomSearch.Path);
+                        pictureBox1.Image = randomSearch.DrawFinalPath(randomSearch.Path, mapViewer);
                     }
                 }
                 // Обновляем отображение
@@ -262,7 +265,7 @@ namespace Krasnyanskaya221327_Lab04_Sem5_Ver1
             }
 
             // Рисуем финальный путь
-            pictureBox1.Image = randomSearch.DrawFinalPath(commands, randomSearch.Path);
+            //pictureBox1.Image = randomSearch.DrawFinalPath(commands, randomSearch.Path);
             //pictureBox1.Refresh();
         }
 
